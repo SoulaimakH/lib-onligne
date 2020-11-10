@@ -1,5 +1,6 @@
 package com.example.Ebook.Controller;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.MvcUriComponentsBuilder;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.example.Ebook.exception.ResourceNotFoundException;
@@ -30,7 +33,9 @@ import com.example.Ebook.message.ResponseMessage;
 import com.example.Ebook.model.Book;
 import com.example.Ebook.model.Filebase;
 import com.example.Ebook.repository.BookRepository;
+import com.example.Ebook.repository.FileDBRepository;
 import com.example.Ebook.service.FileStorageService;
+
 
 
 
@@ -40,14 +45,21 @@ import com.example.Ebook.service.FileStorageService;
 public class booksController {
     @Autowired
     private BookRepository bookRepository;
+    
+    @Autowired
+    private FileDBRepository fileRepository;
+    
     @Autowired
     private FileStorageService storageService;
+    
 
     @GetMapping("/books")
-    public List<Book> getAllEmployees() {
+    public List<Book> getAllbooks() {
     	 return bookRepository.findAll();
     }
 
+    
+    
     @GetMapping("/book/{id}")
     public ResponseEntity<Book> getEmployeeById(@PathVariable(value = "id") Long bookId)
         throws ResourceNotFoundException {
@@ -56,34 +68,44 @@ public class booksController {
         return ResponseEntity.ok().body(book);
     }
     
-    @PostMapping("/addbook")
-    public Book createbook( @RequestBody Book book) {
-        return bookRepository.save(book);
-        
-        
-        
-    }
+ 
 
     @PutMapping("/updatbook/{id}")
     public ResponseEntity<Book> updateEmployee(@PathVariable(value = "id") Long bookId,
-         @Valid @RequestBody Book bookDetails) throws ResourceNotFoundException {
+    		@RequestParam("file") MultipartFile file ,@RequestParam("title")  String titlebook,@RequestParam("author")  
+    String Authorbook,@RequestParam("desc")  String descbook) throws ResourceNotFoundException, IOException {
+    	
     	Book book = bookRepository.findById(bookId)
-        .orElseThrow(() -> new ResourceNotFoundException("Employee not found for this id :: " + bookId));
+    			
+        .orElseThrow(() -> new ResourceNotFoundException("book not found for this id :: " + bookId));
 
-    	book.setdescription(bookDetails.getdescription());
-    	book.settitle(bookDetails.gettitle());
-    	book.setauthor(bookDetails.getauthor());
+    	//Long i = book.getFiledb().getId();
+   	  book.setauthor(Authorbook);
+   	  book.setdescription(descbook);
+   	  book.settitle(titlebook);
+   	String fileName = StringUtils.cleanPath(file.getOriginalFilename());
+   
+  
+   	  book.getFiledb().setName(fileName);
+   	book.getFiledb().setType(file.getContentType());
+   	book.getFiledb().setData(file.getBytes());
+   	  
         final Book updatedbook = bookRepository.save(book);
         return ResponseEntity.ok(updatedbook);
     }
+    
+    
+    
 
     @DeleteMapping("/delbook/{id}")
     public Map<String, Boolean> deletebook(@PathVariable(value = "id") Long bookId)
          throws ResourceNotFoundException {
         Book book = bookRepository.findById(bookId)
        .orElseThrow(() -> new ResourceNotFoundException("book not found for this id :: " + bookId));
-
+Long i=book.getFiledb().getId();
         bookRepository.delete(book);
+        fileRepository.deleteById(i);
+        
         Map<String, Boolean> response = new HashMap<>();
         response.put("deleted", Boolean.TRUE);
         return response;
@@ -92,7 +114,7 @@ public class booksController {
     
     
 
-@PostMapping("/uploadfile")
+@PostMapping("/uploadbook")
     
     public ResponseEntity<ResponseMessage> uploadFile(@RequestParam("file") MultipartFile file ,@RequestParam("title")  String titlebook,@RequestParam("author")  String Authorbook,@RequestParam("desc")  String descbook) {
       String message = "";
@@ -117,13 +139,48 @@ public class booksController {
     }
 
 
-    @GetMapping("/files/{id}")
-    public ResponseEntity<byte[]> getFile(@PathVariable Long id) {
-    	Filebase fileDB = storageService.getFile(id);
 
-      return ResponseEntity.ok()
-          .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileDB.getName() + "\"")
-          .body(fileDB.getData());
-    }
+
+@GetMapping("/files")
+public ResponseEntity<List<ResponseFile>> getListFiles() {
+  List<ResponseFile> files = storageService.getAllFiles().map(dbFile -> {
+    String fileDownloadUri = ServletUriComponentsBuilder
+        .fromCurrentContextPath()
+        .path("/files/")
+        .path(Long.toString(dbFile.getId()))
+        .toUriString();
+
+    return new ResponseFile(
+        dbFile.getName(),
+        fileDownloadUri,
+        dbFile.getType(),
+        dbFile.getData().length);
+  }).collect(Collectors.toList());
+
+  return ResponseEntity.status(HttpStatus.OK).body(files);
+}
+
+
+
+
+@GetMapping("/files/{id}")
+public ResponseEntity getFile(@PathVariable Long id) {
+	 Filebase  Filebase = storageService.getFile(id);
+			{
+	    String fileDownloadUri = ServletUriComponentsBuilder
+	        .fromCurrentContextPath()
+	        .path("/files/{id}")
+	        .path(Long.toString(id))
+	        .toUriString();
+
+	    ResponseFile files= new ResponseFile(
+	    		 Filebase.getName(),
+	        fileDownloadUri,
+	        Filebase.getType(),
+	        Filebase.getData().length);
+	  
+
+	  return ResponseEntity.status(HttpStatus.OK).body(files);
+}
   }
-
+}

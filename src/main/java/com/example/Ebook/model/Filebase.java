@@ -56,7 +56,7 @@ private Book book;
 		  }
 
 	  
-	public long getFile_id() {
+	public long getId() {
 		return id;
 	}
 
