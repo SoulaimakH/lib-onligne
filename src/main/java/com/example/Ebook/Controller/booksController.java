@@ -1,9 +1,11 @@
 package com.example.Ebook.Controller;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import javax.validation.Valid;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.MvcUriComponentsBuilder;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -55,24 +58,46 @@ public class booksController {
 
     @GetMapping("/books")
     public List<Book> getAllbooks() {
-    	 return bookRepository.findAll();
+    	List<Book> listAllBooks = bookRepository.findAll();
+    	
+    	//List<Book> customList = new ArrayList<Book>();
+    	List cus = new ArrayList<>();
+    	
+    	
+    	for (final Book book : listAllBooks) {
+        	HashMap<String, String> capitalCities = new HashMap<String, String>();
+            capitalCities.put("id", Long.toString(book.getId()));
+            capitalCities.put("title", book.gettitle());
+            capitalCities.put("author", book.getauthor());
+            capitalCities.put("description", book.getdescription());
+            if(book.getFiledb()!= null) capitalCities.put("fileid", Long.toString(book.getFiledb().getId()));
+            cus.add(capitalCities);
+    	}
+
+    	 return cus;
     }
 
     
     
     @GetMapping("/book/{id}")
-    public ResponseEntity<Book> getEmployeeById(@PathVariable(value = "id") Long bookId)
+    public HashMap<String, String>getEmployeeById(@PathVariable(value = "id") Long bookId)
         throws ResourceNotFoundException {
     	Book book = bookRepository.findById(bookId)
           .orElseThrow(() -> new ResourceNotFoundException("book not found for this id :: " + bookId));
-        return ResponseEntity.ok().body(book);
+    	HashMap<String, String> capitalCities = new HashMap<String, String>();
+        capitalCities.put("id", Long.toString(book.getId()));
+        capitalCities.put("title", book.gettitle());
+        capitalCities.put("author", book.getauthor());
+        capitalCities.put("description", book.getdescription());
+        if(book.getFiledb()!= null) capitalCities.put("fileid", Long.toString(book.getFiledb().getId()));
+        return capitalCities;
     }
     
  
 
     @PutMapping("/updatbook/{id}")
     public ResponseEntity<Book> updateEmployee(@PathVariable(value = "id") Long bookId,
-    		@RequestParam("file") MultipartFile file ,@RequestParam("title")  String titlebook,@RequestParam("author")  
+    		/*@RequestParam("file") MultipartFile file ,*/@RequestParam("title")  String titlebook,@RequestParam("author")  
     String Authorbook,@RequestParam("desc")  String descbook) throws ResourceNotFoundException, IOException {
     	
     	Book book = bookRepository.findById(bookId)
@@ -83,13 +108,14 @@ public class booksController {
    	  book.setauthor(Authorbook);
    	  book.setdescription(descbook);
    	  book.settitle(titlebook);
-   	String fileName = StringUtils.cleanPath(file.getOriginalFilename());
-   
-  
-   	  book.getFiledb().setName(fileName);
-   	book.getFiledb().setType(file.getContentType());
-   	book.getFiledb().setData(file.getBytes());
+   	 /*
+   		String fileName = StringUtils.cleanPath(file.getOriginalFilename());
+   	   
    	  
+     	  book.getFiledb().setName(fileName);
+     	book.getFiledb().setType(file.getContentType());
+     	book.getFiledb().setData(file.getBytes());
+   	  */
         final Book updatedbook = bookRepository.save(book);
         return ResponseEntity.ok(updatedbook);
     }
@@ -116,7 +142,12 @@ Long i=book.getFiledb().getId();
 
 @PostMapping("/uploadbook")
     
-    public ResponseEntity<ResponseMessage> uploadFile(@RequestParam("file") MultipartFile file ,@RequestParam("title")  String titlebook,@RequestParam("author")  String Authorbook,@RequestParam("desc")  String descbook) {
+    public ResponseEntity<ResponseMessage> uploadFile(
+    		final WebRequest webRequest,
+    		@RequestParam("file") MultipartFile file ,
+    		@RequestParam("title")  String titlebook,
+    		@RequestParam("author")  String Authorbook,
+    		@RequestParam("desc")  String descbook) {
       String message = "";
       Book book=new Book();
       try {
@@ -130,10 +161,10 @@ Long i=book.getFiledb().getId();
     	  
         bookRepository.save(book);
      
-        message = "Uploaded the file successfully: " + file.getOriginalFilename();
+        message = "Uploaded the file successfully: "; // + file.getOriginalFilename();
         return ResponseEntity.status(HttpStatus.OK).body(new ResponseMessage(message));
       } catch (Exception e) {
-        message = "Could not upload the file: " + file.getOriginalFilename() + "!";
+        message = "Could not upload the file: "+e.getMessage(); // + file.getOriginalFilename() + "!";
         return ResponseEntity.status(HttpStatus.EXPECTATION_FAILED).body(new ResponseMessage(message));
       }
     }
@@ -163,7 +194,7 @@ public ResponseEntity<List<ResponseFile>> getListFiles() {
 
 
 
-@GetMapping("/files/{id}")
+@GetMapping("/file/{id}")
 public ResponseEntity getFile(@PathVariable Long id) {
 	 Filebase  Filebase = storageService.getFile(id);
 			{
@@ -183,4 +214,46 @@ public ResponseEntity getFile(@PathVariable Long id) {
 	  return ResponseEntity.status(HttpStatus.OK).body(files);
 }
   }
+
+
+@GetMapping("/filedata/{id}")
+
+public ResponseEntity <Filebase> getFiledata(@PathVariable Long id) throws ResourceNotFoundException {
+	Book book = bookRepository.findById(id)
+          .orElseThrow(() -> new ResourceNotFoundException("book not found for this id :: " + id));
+        return ResponseEntity.ok().body(book.getFiledb());
+
+
+}
+
+
+@PutMapping("/updatfilebook/{id}")
+public ResponseEntity<Book> updatefilbokk(@PathVariable(value = "id") Long bookId,
+		@RequestParam("file") MultipartFile file ) throws ResourceNotFoundException, IOException {
+	
+	Book book = bookRepository.findById(bookId)
+			
+    .orElseThrow(() -> new ResourceNotFoundException("book not found for this id :: " + bookId));
+
+	//Long i = book.getFiledb().getId();
+	 
+	 
+		String fileName = StringUtils.cleanPath(file.getOriginalFilename());
+	   
+	  
+ 	  book.getFiledb().setName(fileName);
+ 	book.getFiledb().setType(file.getContentType());
+ 	book.getFiledb().setData(file.getBytes());
+	  
+   final Book updatedbook = bookRepository.save(book);
+    
+    
+    return ResponseEntity.ok(updatedbook);
+}
+
+
+
+
+
+
 }

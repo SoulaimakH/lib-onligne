@@ -23,7 +23,7 @@ public class Book implements Serializable{
 	
 
 	 @OneToOne
-	  @JoinColumn(name = "datafile_id",nullable = false)
+	  @JoinColumn(name = "datafile_id",nullable = true)
 	
 	private Filebase filedb;
 	 

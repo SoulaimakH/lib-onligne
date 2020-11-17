@@ -25,9 +25,7 @@ import org.hibernate.annotations.GenericGenerator;
 public class Filebase implements Serializable{
 	
 	
-	@OneToOne(
-           
-            mappedBy = "filedb")
+	@OneToOne(mappedBy = "filedb")
 	
  
 private Book book;
